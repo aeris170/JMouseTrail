@@ -16,17 +16,26 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.event.MouseInputAdapter;
 
 public class TrailTest {
 
+	public static final int TRAIL_R = 255;
+	public static final int TRAIL_G = 255;
+	public static final int TRAIL_B = 0;
+
+	// bad practive to use null layouts and absolute positioning.
+	// dont do it like i do kids!
 	public static void main(String[] args) {
-		// needs SwingUtilities.invokeLater() and such. Feel free to pull
-		// because I'm laaaazy
+		// needs SwingUtilities.invokeLater() and such.
+		// Feel free to pull and fix because I'm laaaazy
 		JFrame f = new JFrame();
 		TrailPanel p = new TrailPanel();
+		p.setLayout(null);
 		p.setOpaque(false);
 		p.addMouseMotionListener(new MouseInputAdapter() {
 
@@ -43,6 +52,7 @@ public class TrailTest {
 				p.repaint();
 			}
 		});
+		p.add(new ExitButton());
 		f.setUndecorated(true);
 		f.setBackground(new Color(0, 0, 0, 127));
 		f.add(p);
@@ -90,7 +100,7 @@ public class TrailTest {
 		public TrailPanel() {
 			points = new ConcurrentHashMap<>();
 			lines = new LinkedHashMap<>();
-			Thread t = new Thread(() -> {
+			new Thread(() -> {
 				while(true) {
 					points.replaceAll((k, v) -> v - 5);
 					points.entrySet().removeIf(k -> k.getValue() < 0);
@@ -101,8 +111,7 @@ public class TrailTest {
 					}
 					repaint();
 				}
-			});
-			t.start();
+			}).start();
 		}
 
 		public void connect(Point p1, Point p2) {
@@ -117,7 +126,8 @@ public class TrailTest {
 		@Override
 		public void paintComponent(Graphics g) {
 			super.paintComponent(g);
-			// Don't know why I took the BF approach, the same can be done
+			// Don't know why I took the BF(bufferedimage) approach, the same
+			// can be done
 			// without a BF and rendering it. Instead render it directly on the
 			// panel. Your choice :).
 			BufferedImage bf = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
@@ -131,18 +141,53 @@ public class TrailTest {
 
 			g2d.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
+			// for every entry in entries
+			// get the point of that entry
+			// set graphic contexts paint color
+			// cast a line between the point and the next one on the entry-list
+			// for every point in the line draw a small dot
+			// this way we achieve a somewhat smooth line
 			for(Entry<Point, Integer> entry : points.entrySet()) {
 				Point p = entry.getKey();
 				try {
-					g2d.setColor(new Color(255, 0, 0, entry.getValue() / 4));
-				} catch(IllegalArgumentException ex) {}
+					g2d.setColor(new Color(TRAIL_R, TRAIL_G, TRAIL_B, entry.getValue() / 4));
+				} catch(IllegalArgumentException ex) {} // swallow
 				Line2D line = new Line2D.Double(p.getX(), p.getY(), lines.get(p).getX(), lines.get(p).getY());
 				Point2D[] points = getPoints(line);
 				for(Point2D p2d : points) {
 					g2d.draw(new Arc2D.Double(p2d.getX(), p2d.getY(), 1, 1, 0, 360, Arc2D.OPEN));
 				}
 			}
+
 			g.drawImage(bf, 0, 0, getWidth(), getHeight(), this);
+		}
+	}
+
+	private static class ExitButton extends JButton {
+
+		public ExitButton() {
+			super("Click to Quit");
+			setBorder(BorderFactory.createEmptyBorder());
+			setFocusable(false);
+			setLocation(380, 470);
+			setSize(120, 30);
+			setBackground(new Color(255 - TRAIL_R, 255 - TRAIL_G, 255 - TRAIL_B, 127));
+			setForeground(new Color(TRAIL_R, TRAIL_G, TRAIL_B));
+			setContentAreaFilled(false);
+			addActionListener(e -> System.exit(1));
+		}
+
+		@Override
+		protected void paintComponent(Graphics g) {
+			if(getModel().isPressed()) {
+				g.setColor(getBackground().darker().darker());
+			} else if(getModel().isRollover()) {
+				g.setColor(getBackground().darker());
+			} else {
+				g.setColor(getBackground());
+			}
+			g.fillRect(0, 0, getWidth(), getHeight());
+			super.paintComponent(g);
 		}
 	}
 }
